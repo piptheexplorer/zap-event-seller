@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Event Ticket Seller
  * Description: Sell event tickets with Stripe Checkout using an ACF Pro block.
- * Version: 3.3.0
+ * Version: 3.5.0
  * Author: Pip
  * Text Domain: ets
  */
