@@ -1,0 +1,54 @@
+.ets-pay-button[disabled] {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.ets-ticket-download-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
+
+.ets-ticket-download-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .75rem 0;
+    border-bottom: 1px solid rgba(255,255,255,.15);
+}
+
+.ets-download-btn,
+.ets-profile-submit {
+    display: inline-block;
+    padding: .55rem .85rem;
+    background: #312e82;
+    color: #fff;
+    border-radius: .25rem;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-size: .75rem;
+    border: 0;
+}
+
+.ets-download-btn:hover,
+.ets-profile-submit:hover {
+    opacity: .9;
+    color: #fff;
+}
+
+.ets-email-lookup {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    margin: .5rem 0 1rem;
+    padding: .55rem .75rem;
+}
+
+.ets-event-block {
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: .5rem;
+}
