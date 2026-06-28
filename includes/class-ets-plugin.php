@@ -21,6 +21,7 @@ class Plugin {
     public Customer $customer;
     public Roles $roles;
     public Waiting_List $waiting_list;
+    public Addons $addons_cpt;
     public $event_fields;
 
     public static function instance(): self {
@@ -45,6 +46,7 @@ class Plugin {
         require_once ETS_PLUGIN_DIR . 'includes/class-ets-customer.php';
         require_once ETS_PLUGIN_DIR . 'includes/class-ets-roles.php';
         require_once ETS_PLUGIN_DIR . 'includes/class-ets-waiting-list.php';
+        require_once ETS_PLUGIN_DIR . 'includes/class-ets-addons.php';
 
         $this->settings   = new Settings();
         $this->orders     = new Orders_CPT();
@@ -58,6 +60,7 @@ class Plugin {
         $this->customer  = new Customer();
         $this->roles     = new Roles();
         $this->waiting_list = new Waiting_List();
+        $this->addons_cpt = new Addons();
         $this->event_fields = new Event_Fields();
 
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
@@ -68,7 +71,7 @@ class Plugin {
             'ets-ticket-block',
             ETS_PLUGIN_URL . 'assets/js/ticket-block.js',
             [],
-            '4.1.0',
+            '4.2.0',
             true
         );
 
@@ -76,14 +79,14 @@ class Plugin {
             'ets-tailwind-output',
             ETS_PLUGIN_URL . 'assets/css/tailwind-output.css',
             [],
-            '4.1.0'
+            '4.2.0'
         );
 
         wp_enqueue_style(
             'ets-ticket-block',
             ETS_PLUGIN_URL . 'assets/css/ticket-block.css',
             [ 'ets-tailwind-output' ],
-            '4.1.0'
+            '4.2.0'
         );
 
         wp_register_script(
@@ -98,7 +101,7 @@ class Plugin {
             'ets-checkin',
             ETS_PLUGIN_URL . 'assets/js/checkin.js',
             [ 'ets-html5-qrcode' ],
-            '4.1.0',
+            '4.2.0',
             true
         );
 
@@ -106,7 +109,7 @@ class Plugin {
             'ets-checkin',
             ETS_PLUGIN_URL . 'assets/css/ticket-block.css',
             [],
-            '4.1.0'
+            '4.2.0'
         );
     }
 }

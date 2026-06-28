@@ -135,6 +135,7 @@ class PDF {
             'event_location'    => get_post_meta( $order_id, '_ets_event_location', true ),
             'ticket_type'       => (string) ( $ticket['type'] ?? '' ),
             'ticket_price'      => (float) ( $ticket['price'] ?? 0 ),
+            'ticket_addons'     => isset( $ticket['addons'] ) && is_array( $ticket['addons'] ) ? $ticket['addons'] : [],
             'ticket_id'         => $ticket_id,
             'ticket_image_path' => asset_url_to_path( (string) ( $ticket['image'] ?? '' ) ),
             'design_path'       => asset_url_to_path( (string) $ticket_design ),
@@ -183,6 +184,10 @@ class PDF {
 
         $pdf->SetX( 10 );
         $pdf->Cell( 90, 7, $data['ticket_type'], 0, 1 );
+        if ( ! empty( $data['ticket_addons'] ) ) {
+            $pdf->SetX( 10 );
+            $pdf->Cell( 90, 7, 'Add-ons: ' . $this->format_ticket_addons_for_pdf( $data['ticket_addons'] ), 0, 1 );
+        }
         $pdf->SetX( 10 );
         $pdf->Cell( 90, 7, 'Price: ' . esc_money_gbp( $data['ticket_price'] ), 0, 1 );
         $pdf->SetX( 10 );
@@ -242,6 +247,11 @@ class PDF {
         $pdf->SetFont( 'Arial', 'B', 11 );
         $pdf->SetXY( 10, 116 );
         $pdf->Cell( 60, 6, $data['ticket_type'], 0, 1, 'C' );
+        if ( ! empty( $data['ticket_addons'] ) ) {
+            $pdf->SetFont( 'Arial', '', 8 );
+            $pdf->SetX( 10 );
+            $pdf->Cell( 60, 5, 'Add-ons: ' . $this->format_ticket_addons_for_pdf( $data['ticket_addons'] ), 0, 1, 'C' );
+        }
         $pdf->SetFont( 'Arial', '', 9 );
         $pdf->SetX( 10 );
         $pdf->Cell( 60, 5, 'Name: ' . $data['name'], 0, 1, 'C' );
@@ -289,6 +299,11 @@ class PDF {
         $pdf->SetFont( 'Arial', 'B', 11 );
         $pdf->SetX( 54 );
         $pdf->Cell( 58, 6, $data['ticket_type'], 0, 1 );
+        if ( ! empty( $data['ticket_addons'] ) ) {
+            $pdf->SetFont( 'Arial', '', 8 );
+            $pdf->SetX( 54 );
+            $pdf->Cell( 58, 5, 'Add-ons: ' . $this->format_ticket_addons_for_pdf( $data['ticket_addons'] ), 0, 1 );
+        }
         $pdf->SetFont( 'Arial', '', 9 );
         $pdf->SetX( 54 );
         $pdf->Cell( 58, 5, $data['name'], 0, 1 );
@@ -308,6 +323,18 @@ class PDF {
         $pdf->Cell( 80, 5, 'Ticket ID: ' . $ticket_id, 0, 1 );
 
         return $pdf;
+    }
+
+    private function format_ticket_addons_for_pdf( array $addons ): string {
+        $names = [];
+
+        foreach ( $addons as $addon ) {
+            if ( ! empty( $addon['name'] ) ) {
+                $names[] = sanitize_text_field( (string) $addon['name'] );
+            }
+        }
+
+        return implode( ', ', array_slice( $names, 0, 4 ) );
     }
 
     private function generate_qr_code_image( string $ticket_id, int $order_id ): string {

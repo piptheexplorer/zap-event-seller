@@ -76,7 +76,6 @@ class Stripe {
                 $stock = $event_ticket['stock'] ?? null;
                 $sold  = get_event_ticket_sold_count( $event_id, $ticket_key, $label );
                 $remaining = get_ticket_remaining_stock( $stock, $sold );
-
                 if ( $qty > 0 && $remaining !== null && $qty > $remaining ) {
                     return new WP_REST_Response(
                         [ 'error' => sprintf( 'Only %d %s ticket%s remaining.', $remaining, $label, $remaining === 1 ? '' : 's' ) ],
@@ -120,43 +119,57 @@ class Stripe {
 
         foreach ( $addons as $raw_index => $addon ) {
             $qty       = isset( $addon['qty'] ) ? max( 0, (int) $addon['qty'] ) : 0;
-            $addon_key = isset( $addon['addon_key'] ) ? (int) $addon['addon_key'] : (int) $raw_index;
+            $addon_key = isset( $addon['addon_key'] ) ? sanitize_key( (string) $addon['addon_key'] ) : sanitize_key( (string) $raw_index );
 
             if ( $event_id && isset( $event_addons[ $addon_key ] ) ) {
                 // Trust the Event CPT add-on definition rather than the browser-submitted values.
                 $event_addon = $event_addons[ $addon_key ];
-                $name  = sanitize_text_field( $event_addon['name'] ?? '' );
-                $price = isset( $event_addon['price'] ) ? (float) $event_addon['price'] : 0;
-                $image = normalise_image_url( $event_addon['image'] ?? '' );
-                $stock = $event_addon['stock'] ?? null;
-                $sold  = get_event_addon_sold_count( $event_id, $addon_key, $name );
-                $remaining = get_ticket_remaining_stock( $stock, $sold );
+                $addon_name  = sanitize_text_field( $event_addon['name'] ?? '' );
+                $price       = isset( $event_addon['price'] ) ? (float) $event_addon['price'] : 0;
+                $image       = normalise_image_url( $event_addon['image'] ?? '' );
+                $stock       = $event_addon['stock'] ?? null;
+                $sold        = get_event_addon_sold_count( $event_id, $addon_key, $addon_name );
+                $remaining   = get_ticket_remaining_stock( $stock, $sold );
+                $applies_to  = sanitize_text_field( (string) ( $event_addon['applies_to'] ?? '' ) );
+
+                if ( $qty > 0 && $applies_to && ! $this->order_has_ticket_label( $clean_tickets, $applies_to ) ) {
+                    return new WP_REST_Response(
+                        [ 'error' => sprintf( '%s is only available with a %s ticket.', $addon_name, $applies_to ) ],
+                        400
+                    );
+                }
 
                 if ( $qty > 0 && $remaining !== null && $qty > $remaining ) {
                     return new WP_REST_Response(
-                        [ 'error' => sprintf( 'Only %d %s add-on%s remaining.', $remaining, $name, $remaining === 1 ? '' : 's' ) ],
+                        [ 'error' => sprintf( 'Only %d %s add-on%s remaining.', $remaining, $addon_name, $remaining === 1 ? '' : 's' ) ],
                         400
                     );
                 }
             } else {
-                $name  = isset( $addon['name'] ) ? sanitize_text_field( $addon['name'] ) : '';
-                $price = isset( $addon['price'] ) ? (float) $addon['price'] : 0;
-                $image = isset( $addon['image'] ) ? esc_url_raw( $addon['image'] ) : '';
-                $stock = null;
-                $remaining = null;
+                $addon_name  = isset( $addon['name'] ) ? sanitize_text_field( $addon['name'] ) : '';
+                $price       = isset( $addon['price'] ) ? (float) $addon['price'] : 0;
+                $image       = isset( $addon['image'] ) ? esc_url_raw( $addon['image'] ) : '';
+                $stock       = null;
+                $remaining   = null;
+                $applies_to  = '';
+                $event_addon = [];
             }
 
             $clean_addons[] = [
                 'addon_key' => $addon_key,
                 'qty'       => $qty,
-                'name'      => $name,
+                'name'      => $addon_name,
                 'price'     => $price,
                 'image'     => $image,
                 'stock'     => normalise_ticket_stock_value( $stock ),
                 'remaining_at_purchase' => $remaining,
+                'applies_to' => $applies_to ?? '',
+                'addon_id'   => isset( $event_addon['addon_id'] ) ? (int) $event_addon['addon_id'] : (int) ( $addon['addon_id'] ?? 0 ),
+                'scope'      => isset( $event_addon['scope'] ) ? sanitize_key( (string) $event_addon['scope'] ) : '',
+                'context'    => isset( $event_addon['context'] ) ? sanitize_key( (string) $event_addon['context'] ) : '',
             ];
 
-            if ( $qty > 0 && $price > 0 && $name ) {
+            if ( $qty > 0 && $price > 0 && $addon_name ) {
                 $amount_cents  = (int) round( $price * 100 );
                 $total_amount += $amount_cents * $qty;
 
@@ -165,7 +178,7 @@ class Stripe {
                     'price_data' => [
                         'currency'     => 'gbp',
                         'unit_amount'  => $amount_cents,
-                        'product_data' => [ 'name' => 'Add-on: ' . $name ],
+                        'product_data' => [ 'name' => 'Add-on: ' . $addon_name ],
                     ],
                 ];
             }
@@ -354,7 +367,7 @@ class Stripe {
                 continue;
             }
 
-            $addon_key = isset( $addon['addon_key'] ) ? (int) $addon['addon_key'] : (int) $raw_index;
+            $addon_key = isset( $addon['addon_key'] ) ? sanitize_key( (string) $addon['addon_key'] ) : sanitize_key( (string) $raw_index );
 
             if ( $event_id && isset( $event_addons[ $addon_key ] ) ) {
                 $price = isset( $event_addons[ $addon_key ]['price'] ) ? (float) $event_addons[ $addon_key ]['price'] : 0;
@@ -393,6 +406,22 @@ class Stripe {
         return sanitize_text_field( $body['id'] );
     }
 
+
+    private function order_has_ticket_label( array $tickets, string $label ): bool {
+        $target = sanitize_title( $label );
+
+        foreach ( $tickets as $ticket ) {
+            if ( (int) ( $ticket['qty'] ?? 0 ) <= 0 ) {
+                continue;
+            }
+
+            if ( sanitize_title( (string) ( $ticket['label'] ?? '' ) ) === $target ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private function normalise_attendees_for_ticket( array $attendees, int $ticket_key, int $qty ): array {
         if ( $qty <= 0 ) {
@@ -438,13 +467,8 @@ class Stripe {
             return [];
         }
 
-        $addons = function_exists( 'get_field' ) ? get_field( 'ets_event_addons', $event_id ) : get_post_meta( $event_id, 'ets_event_addons', true );
-
-        if ( ! is_array( $addons ) ) {
-            return [];
-        }
-
-        return $addons;
+        $ticket_types = $this->get_event_ticket_types( $event_id );
+        return get_event_available_addons( $event_id, $ticket_types );
     }
 
     private function reduce_event_stock_for_order( int $order_id ): void {
@@ -495,7 +519,7 @@ class Stripe {
                 }
 
                 $name = sanitize_text_field( $addon['name'] ?? '' );
-                $addon_key = isset( $addon['addon_key'] ) ? (int) $addon['addon_key'] : 0;
+                $addon_key = isset( $addon['addon_key'] ) ? sanitize_key( (string) $addon['addon_key'] ) : '0';
                 $stock = normalise_ticket_stock_value( $addon['stock'] ?? null );
 
                 if ( $stock === null || ! $name ) {
@@ -558,7 +582,10 @@ class Stripe {
             return;
         }
 
-        $generated = [];
+        $addons      = get_post_meta( $order_id, '_ets_addons', true );
+        $addons      = is_array( $addons ) ? $addons : [];
+        $allocations = $this->build_ticket_addon_allocations( $addons );
+        $generated   = [];
 
         foreach ( $tickets as $ticket ) {
             $qty   = (int) ( $ticket['qty'] ?? 0 );
@@ -573,20 +600,146 @@ class Stripe {
             $attendees = isset( $ticket['attendees'] ) && is_array( $ticket['attendees'] ) ? $ticket['attendees'] : [];
 
             for ( $i = 1; $i <= $qty; $i++ ) {
-                $attendee = $attendees[ $i - 1 ] ?? [];
+                $attendee       = $attendees[ $i - 1 ] ?? [];
+                $ticket_addons  = $this->allocate_addons_for_ticket( $allocations, $label );
 
                 $generated[] = [
                     'ticket_id'      => strtoupper( wp_generate_password( 10, false, false ) ),
                     'ticket_key'     => (int) ( $ticket['ticket_key'] ?? 0 ),
+                    'ticket_kind'    => 'ticket',
                     'type'           => $label,
                     'price'          => $price,
                     'image'          => $image,
+                    'addons'         => $ticket_addons,
                     'attendee_name'  => sanitize_text_field( (string) ( $attendee['name'] ?? '' ) ),
                     'attendee_email' => sanitize_email( (string) ( $attendee['email'] ?? '' ) ),
                 ];
             }
         }
 
+        // Event-wide add-ons become their own digital tickets/passes.
+        foreach ( $addons as $addon ) {
+            if ( ! $this->is_event_wide_addon( $addon ) ) {
+                continue;
+            }
+
+            $qty = (int) ( $addon['qty'] ?? 0 );
+            if ( $qty <= 0 ) {
+                continue;
+            }
+
+            $summary = $this->normalise_addon_summary( $addon );
+            if ( empty( $summary['name'] ) ) {
+                continue;
+            }
+
+            for ( $i = 1; $i <= $qty; $i++ ) {
+                $generated[] = [
+                    'ticket_id'      => strtoupper( wp_generate_password( 10, false, false ) ),
+                    'ticket_key'     => -1,
+                    'ticket_kind'    => 'event_addon',
+                    'type'           => $summary['name'],
+                    'price'          => $summary['price'],
+                    'image'          => $summary['image'],
+                    'addons'         => [],
+                    'attendee_name'  => '',
+                    'attendee_email' => '',
+                    'addon_key'      => $summary['addon_key'],
+                    'addon_id'       => $summary['addon_id'],
+                ];
+            }
+        }
+
         update_post_meta( $order_id, '_ets_generated_tickets', $generated );
     }
-}
+
+    private function build_ticket_addon_allocations( array $addons ): array {
+        $allocations = [
+            'by_label' => [],
+            'any'      => [],
+        ];
+
+        foreach ( $addons as $addon ) {
+            if ( ! $this->is_per_ticket_addon( $addon ) ) {
+                continue;
+            }
+
+            $qty = (int) ( $addon['qty'] ?? 0 );
+            if ( $qty <= 0 ) {
+                continue;
+            }
+
+            $summary = $this->normalise_addon_summary( $addon );
+            if ( empty( $summary['name'] ) ) {
+                continue;
+            }
+
+            $target_label = sanitize_title( (string) ( $addon['applies_to'] ?? '' ) );
+
+            for ( $i = 0; $i < $qty; $i++ ) {
+                if ( $target_label ) {
+                    $allocations['by_label'][ $target_label ][] = $summary;
+                } else {
+                    $allocations['any'][] = $summary;
+                }
+            }
+        }
+
+        return $allocations;
+    }
+
+    private function allocate_addons_for_ticket( array &$allocations, string $ticket_label ): array {
+        $addons = [];
+        $key    = sanitize_title( $ticket_label );
+
+        if ( $key && ! empty( $allocations['by_label'][ $key ] ) ) {
+            $addons[] = array_shift( $allocations['by_label'][ $key ] );
+        }
+
+        if ( ! empty( $allocations['any'] ) ) {
+            $addons[] = array_shift( $allocations['any'] );
+        }
+
+        return array_values( array_filter( $addons ) );
+    }
+
+    private function is_event_wide_addon( array $addon ): bool {
+        $context = sanitize_key( (string) ( $addon['context'] ?? '' ) );
+        $scope   = sanitize_key( (string) ( $addon['scope'] ?? '' ) );
+
+        if ( $context === 'event' ) {
+            return true;
+        }
+
+        if ( $scope === 'event' && $context !== 'per_ticket' ) {
+            return true;
+        }
+
+        // Legacy add-ons without a target label behave like event-wide add-ons.
+        return $scope === 'legacy' && empty( $addon['applies_to'] );
+    }
+
+    private function is_per_ticket_addon( array $addon ): bool {
+        $context = sanitize_key( (string) ( $addon['context'] ?? '' ) );
+        $scope   = sanitize_key( (string) ( $addon['scope'] ?? '' ) );
+
+        if ( $context === 'per_ticket' ) {
+            return true;
+        }
+
+        if ( $scope === 'per_ticket' ) {
+            return true;
+        }
+
+        return $scope === 'legacy' && ! empty( $addon['applies_to'] );
+    }
+
+    private function normalise_addon_summary( array $addon ): array {
+        return [
+            'addon_key' => sanitize_key( (string) ( $addon['addon_key'] ?? '' ) ),
+            'addon_id'  => (int) ( $addon['addon_id'] ?? 0 ),
+            'name'      => sanitize_text_field( (string) ( $addon['name'] ?? '' ) ),
+            'price'     => (float) ( $addon['price'] ?? 0 ),
+            'image'     => esc_url_raw( (string) ( $addon['image'] ?? '' ) ),
+        ];
+    }}

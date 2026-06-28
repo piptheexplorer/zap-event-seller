@@ -20,6 +20,16 @@ if ( empty( $addons ) || ! is_array( $addons ) ) {
             $remaining   = $addon['_ets_remaining'] ?? null;
             $sold_out    = ! empty( $addon['_ets_sold_out'] );
             $applies_to  = $addon['applies_to'] ?? '';
+            $context     = sanitize_key( (string) ( $addon['context'] ?? '' ) );
+            $scope       = sanitize_key( (string) ( $addon['scope'] ?? '' ) );
+            $addon_label = '';
+
+            if ( $applies_to ) {
+                $addon_label = sprintf( __( 'For %s ticket', 'ets' ), $applies_to );
+            } elseif ( in_array( $context, [ 'event', 'legacy' ], true ) || in_array( $scope, [ 'event', 'both' ], true ) ) {
+                $addon_label = __( 'Event add-on', 'ets' );
+            }
+
             if ( ! $name ) { continue; }
         ?>
             <div class="ets-addon-card border border-gray-200/50 rounded-xl p-3" data-applies-to="<?php echo esc_attr( sanitize_title( $applies_to ) ); ?>">
@@ -27,7 +37,14 @@ if ( empty( $addons ) || ! is_array( $addons ) ) {
                     <img src="<?php echo esc_url( $image_url ); ?>" alt="" class="mb-3 rounded-lg object-cover w-full h-28">
                 <?php endif; ?>
 
-                <h4 class="text-base font-semibold mb-1"><?php echo esc_html( $name ); ?></h4>
+                <div class="flex items-start justify-between gap-3 mb-1">
+                    <h4 class="text-base font-semibold"><?php echo esc_html( $name ); ?></h4>
+                    <?php if ( $addon_label ) : ?>
+                        <span class="ets-addon-context-label inline-flex items-center rounded-full bg-indigo-950/60 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-100">
+                            <?php echo esc_html( $addon_label ); ?>
+                        </span>
+                    <?php endif; ?>
+                </div>
                 <?php if ( $description ) : ?>
                     <p class="text-sm opacity-80 mb-2"><?php echo esc_html( $description ); ?></p>
                 <?php endif; ?>

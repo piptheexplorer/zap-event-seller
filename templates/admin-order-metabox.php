@@ -152,6 +152,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                     <th>Ticket ID</th>
                     <th>Type</th>
                     <th>Attendee</th>
+                    <th>Ticket Add-ons</th>
                     <th>Price</th>
                     <th>Image</th>
                     <th>Check-in</th>
@@ -172,6 +173,19 @@ if ( ! defined( 'ABSPATH' ) ) {
                             <?php echo esc_html( $ticket['attendee_name'] ?? '' ); ?>
                             <?php if ( ! empty( $ticket['attendee_email'] ) ) : ?>
                                 <br><small><?php echo esc_html( $ticket['attendee_email'] ); ?></small>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ( ! empty( $ticket['addons'] ) && is_array( $ticket['addons'] ) ) : ?>
+                                <ul style="margin:0 0 0 18px;">
+                                    <?php foreach ( $ticket['addons'] as $ticket_addon ) : ?>
+                                        <li><?php echo esc_html( $ticket_addon['name'] ?? '' ); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php elseif ( ( $ticket['ticket_kind'] ?? '' ) === 'event_addon' ) : ?>
+                                <small>Event-wide add-on pass</small>
+                            <?php else : ?>
+                                —
                             <?php endif; ?>
                         </td>
                         <td><?php echo esc_html( \ETS\esc_money_gbp( (float) ( $ticket['price'] ?? 0 ) ) ); ?></td>

@@ -197,12 +197,33 @@ class Shortcodes {
                 'ticket_pdf'   => $ticket['ticket_id'],
             ] );
 
+            $addon_html = '';
+            if ( ! empty( $ticket['addons'] ) && is_array( $ticket['addons'] ) ) {
+                $addon_names = [];
+                foreach ( $ticket['addons'] as $ticket_addon ) {
+                    if ( ! empty( $ticket_addon['name'] ) ) {
+                        $addon_label = esc_html( $ticket_addon['name'] );
+                        if ( isset( $ticket_addon['price'] ) && (float) $ticket_addon['price'] > 0 ) {
+                            $addon_label .= ' (' . esc_html( esc_money_gbp( (float) $ticket_addon['price'] ) ) . ')';
+                        }
+                        $addon_names[] = $addon_label;
+                    }
+                }
+                if ( $addon_names ) {
+                    $addon_html = '<br><small>Add-ons: ' . implode( ', ', $addon_names ) . '</small>';
+                }
+            }
+
+            $kind_html = ( $ticket['ticket_kind'] ?? '' ) === 'event_addon' ? '<br><small>Event-wide add-on pass</small>' : '';
+
             $html .= sprintf(
-                '<li class="ets-ticket-download-row"><div><strong>%s</strong><br><span>%s</span> <span>%s</span>%s</div><a href="%s" class="ets-download-btn">Download ticket</a></li>',
+                '<li class="ets-ticket-download-row"><div><strong>%s</strong><br><span>%s</span> <span>%s</span>%s%s%s</div><a href="%s" class="ets-download-btn">Download ticket</a></li>',
                 esc_html( $ticket['ticket_id'] ),
                 esc_html( $ticket['type'] ?? '' ),
                 esc_html( esc_money_gbp( (float) ( $ticket['price'] ?? 0 ) ) ),
                 ! empty( $ticket['attendee_name'] ) ? '<br><small>Attendee: ' . esc_html( $ticket['attendee_name'] ) . '</small>' : '',
+                $addon_html,
+                $kind_html,
                 esc_url( $download_link )
             );
         }

@@ -43,6 +43,25 @@ if ( ! defined( 'ABSPATH' ) ) {
                                 <?php if ( ! empty( $ticket['attendee_name'] ) ) : ?>
                                     <br><small>Attendee: <?php echo esc_html( $ticket['attendee_name'] ); ?></small>
                                 <?php endif; ?>
+                                <?php if ( ! empty( $ticket['addons'] ) && is_array( $ticket['addons'] ) ) : ?>
+                                    <br><small>
+                                        Add-ons:
+                                        <?php
+                                        $addon_bits = [];
+                                        foreach ( $ticket['addons'] as $ticket_addon ) {
+                                            if ( empty( $ticket_addon['name'] ) ) {
+                                                continue;
+                                            }
+                                            $addon_text = esc_html( $ticket_addon['name'] );
+                                            if ( isset( $ticket_addon['price'] ) && (float) $ticket_addon['price'] > 0 ) {
+                                                $addon_text .= ' (' . esc_html( \ETS\esc_money_gbp( (float) $ticket_addon['price'] ) ) . ')';
+                                            }
+                                            $addon_bits[] = $addon_text;
+                                        }
+                                        echo wp_kses_post( implode( ', ', $addon_bits ) );
+                                        ?>
+                                    </small>
+                                <?php endif; ?>
                                 <?php if ( isset( $ticket['checked_in'] ) && $ticket['checked_in'] ) : ?>
                                     <br><small>Checked in</small>
                                 <?php endif; ?>

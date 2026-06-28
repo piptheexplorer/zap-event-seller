@@ -118,8 +118,8 @@ function get_ticket_remaining_stock( $stock, int $sold = 0 ) {
 }
 
 
-function addon_stock_key( int $index, string $name ): string {
-    return $index . '|' . sanitize_title( $name );
+function addon_stock_key( $index, string $name ): string {
+    return sanitize_key( (string) $index ) . '|' . sanitize_title( $name );
 }
 
 function get_event_addon_stock_sold( int $event_id ): array {
@@ -127,7 +127,7 @@ function get_event_addon_stock_sold( int $event_id ): array {
     return is_array( $sold ) ? $sold : [];
 }
 
-function get_event_addon_sold_count( int $event_id, int $index, string $name ): int {
+function get_event_addon_sold_count( int $event_id, $index, string $name ): int {
     if ( ! $event_id ) {
         return 0;
     }
@@ -288,4 +288,184 @@ function increment_discount_usage_for_order( int $order_id ): void {
     $used = (int) get_post_meta( $discount_id, '_ets_discount_used_count', true );
     update_post_meta( $discount_id, '_ets_discount_used_count', $used + 1 );
     update_post_meta( $order_id, '_ets_discount_usage_incremented', 'yes' );
+}
+
+function get_addon_description( int $addon_id ): string {
+    $description = function_exists( 'get_field' ) ? get_field( 'ets_addon_description', $addon_id ) : get_post_meta( $addon_id, 'ets_addon_description', true );
+    return (string) ( $description ?: '' );
+}
+
+function get_addon_price( int $addon_id ): float {
+    $price = function_exists( 'get_field' ) ? get_field( 'ets_addon_price', $addon_id ) : get_post_meta( $addon_id, 'ets_addon_price', true );
+    return is_numeric( $price ) ? max( 0, (float) $price ) : 0.0;
+}
+
+function get_addon_stock( int $addon_id ) {
+    $stock = function_exists( 'get_field' ) ? get_field( 'ets_addon_stock', $addon_id ) : get_post_meta( $addon_id, 'ets_addon_stock', true );
+    return normalise_ticket_stock_value( $stock );
+}
+
+function get_addon_scope( int $addon_id ): string {
+    $scope = function_exists( 'get_field' ) ? get_field( 'ets_addon_scope', $addon_id ) : get_post_meta( $addon_id, 'ets_addon_scope', true );
+    $scope = sanitize_key( (string) ( $scope ?: 'event' ) );
+    return in_array( $scope, [ 'event', 'per_ticket', 'both' ], true ) ? $scope : 'event';
+}
+
+function get_addon_image_url( int $addon_id ): string {
+    $image = function_exists( 'get_field' ) ? get_field( 'ets_addon_image', $addon_id ) : get_post_meta( $addon_id, 'ets_addon_image', true );
+    $url = normalise_image_url( $image );
+
+    if ( ! $url && has_post_thumbnail( $addon_id ) ) {
+        $url = (string) get_the_post_thumbnail_url( $addon_id, 'full' );
+    }
+
+    return $url;
+}
+
+function get_addon_cpt_data( int $addon_id, string $applies_to = '', string $context = 'event' ): array {
+    $post = get_post( $addon_id );
+    if ( ! $post || $post->post_type !== 'ets_addon' ) {
+        return [];
+    }
+
+    return [
+        'addon_id'    => $addon_id,
+        'name'        => get_the_title( $addon_id ),
+        'description' => get_addon_description( $addon_id ),
+        'price'       => get_addon_price( $addon_id ),
+        'stock'       => get_addon_stock( $addon_id ),
+        'image'       => get_addon_image_url( $addon_id ),
+        'scope'       => get_addon_scope( $addon_id ),
+        'context'     => sanitize_key( $context ),
+        'applies_to'  => sanitize_text_field( $applies_to ),
+    ];
+}
+
+function normalise_post_id_list( $value ): array {
+    if ( empty( $value ) ) {
+        return [];
+    }
+
+    if ( is_numeric( $value ) ) {
+        return [ (int) $value ];
+    }
+
+    if ( $value instanceof \WP_Post ) {
+        return [ (int) $value->ID ];
+    }
+
+    if ( ! is_array( $value ) ) {
+        return [];
+    }
+
+    $ids = [];
+    foreach ( $value as $item ) {
+        if ( is_numeric( $item ) ) {
+            $ids[] = (int) $item;
+        } elseif ( $item instanceof \WP_Post ) {
+            $ids[] = (int) $item->ID;
+        } elseif ( is_array( $item ) && isset( $item['ID'] ) ) {
+            $ids[] = (int) $item['ID'];
+        }
+    }
+
+    return array_values( array_unique( array_filter( $ids ) ) );
+}
+
+function get_event_available_addons( int $event_id, array $ticket_types = [] ): array {
+    if ( ! $event_id ) {
+        return [];
+    }
+
+    $addons = [];
+
+    $event_addon_ids = function_exists( 'get_field' ) ? get_field( 'ets_event_addon_ids', $event_id ) : get_post_meta( $event_id, 'ets_event_addon_ids', true );
+    foreach ( normalise_post_id_list( $event_addon_ids ) as $addon_id ) {
+        $scope = get_addon_scope( $addon_id );
+        if ( ! in_array( $scope, [ 'event', 'both' ], true ) ) {
+            continue;
+        }
+
+        $data = get_addon_cpt_data( $addon_id, '', 'event' );
+        if ( $data ) {
+            $addons[ 'addon_' . $addon_id . '_event' ] = $data;
+        }
+    }
+
+    foreach ( $ticket_types as $ticket_index => $ticket ) {
+        if ( ! is_array( $ticket ) ) {
+            continue;
+        }
+
+        $label = sanitize_text_field( (string) ( $ticket['label'] ?? '' ) );
+        if ( ! $label ) {
+            continue;
+        }
+
+        $allowed_addons = $ticket['allowed_addons'] ?? [];
+        foreach ( normalise_post_id_list( $allowed_addons ) as $addon_id ) {
+            $scope = get_addon_scope( $addon_id );
+            if ( ! in_array( $scope, [ 'per_ticket', 'both' ], true ) ) {
+                continue;
+            }
+
+            $data = get_addon_cpt_data( $addon_id, $label, 'per_ticket' );
+            if ( $data ) {
+                $addons[ 'addon_' . $addon_id . '_ticket_' . sanitize_key( (string) $ticket_index ) ] = $data;
+            }
+        }
+    }
+
+    // Backwards compatibility: keep old event repeater add-ons working while users migrate.
+    $legacy_addons = function_exists( 'get_field' ) ? get_field( 'ets_event_addons', $event_id ) : get_post_meta( $event_id, 'ets_event_addons', true );
+    if ( is_array( $legacy_addons ) ) {
+        foreach ( $legacy_addons as $legacy_index => $addon ) {
+            if ( ! is_array( $addon ) || empty( $addon['name'] ) ) {
+                continue;
+            }
+
+            $addons[ 'legacy_' . sanitize_key( (string) $legacy_index ) ] = [
+                'addon_id'    => 0,
+                'name'        => sanitize_text_field( (string) ( $addon['name'] ?? '' ) ),
+                'description' => sanitize_textarea_field( (string) ( $addon['description'] ?? '' ) ),
+                'price'       => isset( $addon['price'] ) ? (float) $addon['price'] : 0,
+                'stock'       => $addon['stock'] ?? null,
+                'image'       => normalise_image_url( $addon['image'] ?? '' ),
+                'scope'       => 'legacy',
+                'context'     => 'legacy',
+                'applies_to'  => sanitize_text_field( (string) ( $addon['applies_to'] ?? '' ) ),
+            ];
+        }
+    }
+
+    return normalise_event_addon_rows( $addons, $event_id );
+}
+
+function normalise_event_addon_rows( array $addons, int $event_id = 0 ): array {
+    $normalised = [];
+
+    foreach ( $addons as $index => $addon ) {
+        if ( ! is_array( $addon ) ) {
+            continue;
+        }
+
+        $name = sanitize_text_field( (string) ( $addon['name'] ?? '' ) );
+        if ( ! $name ) {
+            continue;
+        }
+
+        $stock     = $addon['stock'] ?? null;
+        $sold      = $event_id ? get_event_addon_sold_count( $event_id, $index, $name ) : 0;
+        $remaining = get_ticket_remaining_stock( $stock, $sold );
+
+        $addon['_ets_index']     = (string) $index;
+        $addon['_ets_stock']     = normalise_ticket_stock_value( $stock );
+        $addon['_ets_sold']      = $sold;
+        $addon['_ets_remaining'] = $remaining;
+        $addon['_ets_sold_out']  = ( $remaining !== null && $remaining <= 0 );
+
+        $normalised[ (string) $index ] = $addon;
+    }
+
+    return $normalised;
 }

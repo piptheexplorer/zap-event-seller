@@ -109,18 +109,40 @@ class Event_Fields {
                             'preview_size'  => 'medium',
                             'library'       => 'all',
                         ],
+
+                        [
+                            'key'           => 'field_ets_ticket_allowed_addons',
+                            'label'         => 'Per-ticket Add-ons',
+                            'name'          => 'allowed_addons',
+                            'type'          => 'relationship',
+                            'post_type'     => [ 'ets_addon' ],
+                            'filters'       => [ 'search' ],
+                            'return_format' => 'id',
+                            'instructions'  => 'Optional. Select add-ons that should appear only when this ticket type is selected, such as food upgrades or VIP packs.',
+                        ],
                     ],
                 ],
 
 
                 [
+                    'key'           => 'field_ets_event_addon_ids',
+                    'label'         => 'Event-wide Add-ons',
+                    'name'          => 'ets_event_addon_ids',
+                    'type'          => 'relationship',
+                    'post_type'     => [ 'ets_addon' ],
+                    'filters'       => [ 'search' ],
+                    'return_format' => 'id',
+                    'instructions'  => 'Select reusable add-ons that apply to the whole order/event, such as parking, programmes or merch bundles.',
+                ],
+
+                [
                     'key'          => 'field_ets_event_addons',
-                    'label'        => 'Add-ons / Upsells',
+                    'label'        => 'Legacy Add-ons / Upsells',
                     'name'         => 'ets_event_addons',
                     'type'         => 'repeater',
                     'button_label' => 'Add Add-on',
                     'layout'       => 'block',
-                    'instructions' => 'Optional extras customers can add to their booking, such as parking, programmes, food vouchers or merchandise.',
+                    'instructions' => 'Legacy event-level add-ons. New add-ons should be created under Ticket Seller → Add-ons and selected above. Existing entries remain supported.',
                     'sub_fields'   => [
                         [
                             'key'   => 'field_ets_addon_name',

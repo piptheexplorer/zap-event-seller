@@ -16,6 +16,29 @@
         return value;
     }
 
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function renderAddonRows(ticket) {
+        if (!ticket.addons || !Array.isArray(ticket.addons) || !ticket.addons.length) {
+            return '';
+        }
+
+        const items = ticket.addons.map(addon => {
+            const name = escapeHtml(addon.name || '');
+            const price = addon.price ? ' <span>(' + escapeHtml(addon.price) + ')</span>' : '';
+            return '<li>' + name + price + '</li>';
+        }).join('');
+
+        return '<div class="ets-checkin-addons"><p><strong>Add-ons:</strong></p><ul>' + items + '</ul></div>';
+    }
+
     function renderResult(container, data, type) {
         const result = container.querySelector('.ets-checkin-result');
         if (!result) return;
@@ -28,15 +51,20 @@
             : '<p><strong>Status:</strong> Valid, not yet checked in</p>';
 
         result.className = 'ets-checkin-result ' + statusClass;
+        const addonRows = renderAddonRows(ticket);
+        const ticketKind = ticket.ticket_kind === 'event_addon' ? '<p><strong>Type:</strong> Event-wide add-on pass</p>' : '';
+
         result.innerHTML = `
-            <h3>${data.message || (checked ? 'Ticket already used' : 'Valid ticket')}</h3>
-            <p><strong>Ticket ID:</strong> ${ticket.ticket_id || ''}</p>
-            <p><strong>Ticket:</strong> ${ticket.ticket_type || ''} ${ticket.price ? '(' + ticket.price + ')' : ''}</p>
-            ${ticket.attendee_name ? '<p><strong>Attendee:</strong> ' + ticket.attendee_name + (ticket.attendee_email ? ' &lt;' + ticket.attendee_email + '&gt;' : '') + '</p>' : ''}
-            <p><strong>Customer:</strong> ${ticket.customer_name || ''}</p>
-            <p><strong>Event:</strong> ${ticket.event_title || ''}</p>
-            <p><strong>Date:</strong> ${ticket.event_date || ''} ${ticket.event_time || ''}</p>
-            <p><strong>Location:</strong> ${ticket.event_location || ''}</p>
+            <h3>${escapeHtml(data.message || (checked ? 'Ticket already used' : 'Valid ticket'))}</h3>
+            <p><strong>Ticket ID:</strong> ${escapeHtml(ticket.ticket_id || '')}</p>
+            <p><strong>Ticket:</strong> ${escapeHtml(ticket.ticket_type || '')} ${ticket.price ? '(' + escapeHtml(ticket.price) + ')' : ''}</p>
+            ${ticketKind}
+            ${addonRows}
+            ${ticket.attendee_name ? '<p><strong>Attendee:</strong> ' + escapeHtml(ticket.attendee_name) + (ticket.attendee_email ? ' &lt;' + escapeHtml(ticket.attendee_email) + '&gt;' : '') + '</p>' : ''}
+            <p><strong>Customer:</strong> ${escapeHtml(ticket.customer_name || '')}</p>
+            <p><strong>Event:</strong> ${escapeHtml(ticket.event_title || '')}</p>
+            <p><strong>Date:</strong> ${escapeHtml(ticket.event_date || '')} ${escapeHtml(ticket.event_time || '')}</p>
+            <p><strong>Location:</strong> ${escapeHtml(ticket.event_location || '')}</p>
             ${checkedText}
         `;
     }

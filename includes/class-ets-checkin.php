@@ -175,14 +175,30 @@ class Checkin {
         $user_id  = (int) ( $ticket['checked_in_by'] ?? 0 );
         $user     = $user_id ? get_userdata( $user_id ) : false;
 
+        $addons = [];
+        if ( ! empty( $ticket['addons'] ) && is_array( $ticket['addons'] ) ) {
+            foreach ( $ticket['addons'] as $addon ) {
+                if ( empty( $addon['name'] ) ) {
+                    continue;
+                }
+
+                $addons[] = [
+                    'name'  => (string) $addon['name'],
+                    'price' => esc_money_gbp( (float) ( $addon['price'] ?? 0 ) ),
+                ];
+            }
+        }
+
         return [
             'success'          => true,
             'order_id'         => $order_id,
             'ticket_id'        => (string) ( $ticket['ticket_id'] ?? '' ),
             'ticket_type'      => (string) ( $ticket['type'] ?? '' ),
+            'ticket_kind'      => (string) ( $ticket['ticket_kind'] ?? 'ticket' ),
             'attendee_name'    => (string) ( $ticket['attendee_name'] ?? '' ),
             'attendee_email'   => (string) ( $ticket['attendee_email'] ?? '' ),
             'price'            => esc_money_gbp( (float) ( $ticket['price'] ?? 0 ) ),
+            'addons'           => $addons,
             'checked_in'       => ! empty( $ticket['checked_in'] ),
             'checked_in_at'    => (string) ( $ticket['checked_in_at'] ?? '' ),
             'checked_in_by'    => $user ? $user->display_name : '',
