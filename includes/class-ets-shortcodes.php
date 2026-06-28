@@ -21,6 +21,7 @@ class Shortcodes {
         $order_id       = (int) $_GET['ets_order_id'];
         $name           = get_post_meta( $order_id, '_ets_customer_name', true );
         $tickets        = get_post_meta( $order_id, '_ets_tickets', true );
+        $addons         = get_post_meta( $order_id, '_ets_addons', true );
         $event_title    = get_post_meta( $order_id, '_ets_event_title', true );
         $event_date     = get_post_meta( $order_id, '_ets_event_date', true );
         $event_time     = get_post_meta( $order_id, '_ets_event_time', true );
@@ -33,6 +34,7 @@ class Shortcodes {
         }
 
         $lines = $this->build_ticket_lines( $tickets );
+        $addon_lines = $this->build_addon_lines( (array) $addons );
         $ticket_info = $this->build_download_buttons( $order_id, (array) $ticket_ids );
 
         ob_start();
@@ -60,12 +62,14 @@ class Shortcodes {
         $event_time     = get_post_meta( $order_id, '_ets_event_time', true );
         $event_location = get_post_meta( $order_id, '_ets_event_location', true );
         $tickets        = get_post_meta( $order_id, '_ets_tickets', true );
+        $addons         = get_post_meta( $order_id, '_ets_addons', true );
 
         if ( empty( $customer_email ) ) {
             return;
         }
 
         $ticket_lines = $this->build_ticket_lines( (array) $tickets );
+        $addon_lines  = $this->build_addon_lines( (array) $addons );
         $headers      = [
             'Content-Type: text/html; charset=UTF-8',
             'From: ' . $from_name . ' <' . $from_email . '>',
@@ -84,16 +88,22 @@ class Shortcodes {
             'event_date'      => esc_html( $event_date ),
             'event_time'      => esc_html( $event_time ),
             'event_location'  => esc_html( $event_location ),
-            'tickets'         => '<ul>' . $ticket_lines . '</ul>',
+            'tickets'         => '<ul>' . $ticket_lines . '</ul>' . ( $addon_lines ? '<p><strong>Add-ons:</strong></p><ul>' . $addon_lines . '</ul>' : '' ),
             'download_button' => $download_button,
         ] );
 
-        wp_mail( $customer_email, 'Your Ticket Order Confirmation', $message, $headers, [] );
+        $attachments = [];
+        if ( get_setting( 'email_ticket_pdf_attachments', '' ) === '1' && isset( Plugin::instance()->pdf ) ) {
+            $attachments = Plugin::instance()->pdf->get_ticket_pdf_attachment_paths( $order_id );
+        }
+
+        wp_mail( $customer_email, 'Your Ticket Order Confirmation', $message, $headers, $attachments );
 
         $admin_message = '<h2>New Ticket Order</h2>' .
             '<p><strong>Name:</strong> ' . esc_html( $customer_name ) . '</p>' .
             '<p><strong>Email:</strong> ' . esc_html( $customer_email ) . '</p>' .
-            '<p><strong>Tickets:</strong></p><ul>' . $ticket_lines . '</ul>';
+            '<p><strong>Tickets:</strong></p><ul>' . $ticket_lines . '</ul>' .
+            ( $addon_lines ? '<p><strong>Add-ons:</strong></p><ul>' . $addon_lines . '</ul>' : '' );
 
         wp_mail( $admin_email, 'New Ticket Order #' . $order_id, $admin_message, $headers );
 
@@ -134,7 +144,40 @@ class Shortcodes {
                 continue;
             }
 
-            $lines .= '<li>' . intval( $ticket['qty'] ) . ' × ' . esc_html( $ticket['label'] ?? '' ) . '</li>';
+            $lines .= '<li>' . intval( $ticket['qty'] ) . ' × ' . esc_html( $ticket['label'] ?? '' );
+
+            if ( ! empty( $ticket['attendees'] ) && is_array( $ticket['attendees'] ) ) {
+                $attendee_names = [];
+                foreach ( $ticket['attendees'] as $attendee ) {
+                    if ( ! empty( $attendee['name'] ) ) {
+                        $attendee_names[] = esc_html( $attendee['name'] );
+                    }
+                }
+
+                if ( $attendee_names ) {
+                    $lines .= '<br><small>Attendees: ' . implode( ', ', $attendee_names ) . '</small>';
+                }
+            }
+
+            $lines .= '</li>';
+        }
+
+        return $lines;
+    }
+
+
+    private function build_addon_lines( array $addons ): string {
+        $lines = '';
+
+        foreach ( $addons as $addon ) {
+            if ( empty( $addon['qty'] ) ) {
+                continue;
+            }
+
+            $qty = (int) $addon['qty'];
+            $name = esc_html( $addon['name'] ?? '' );
+            $price = esc_html( esc_money_gbp( (float) ( $addon['price'] ?? 0 ) ) );
+            $lines .= '<li>' . $qty . ' × ' . $name . ' <small>(' . $price . ' each)</small></li>';
         }
 
         return $lines;
@@ -155,10 +198,11 @@ class Shortcodes {
             ] );
 
             $html .= sprintf(
-                '<li class="ets-ticket-download-row"><div><strong>%s</strong><br><span>%s</span> <span>%s</span></div><a href="%s" class="ets-download-btn">Download ticket</a></li>',
+                '<li class="ets-ticket-download-row"><div><strong>%s</strong><br><span>%s</span> <span>%s</span>%s</div><a href="%s" class="ets-download-btn">Download ticket</a></li>',
                 esc_html( $ticket['ticket_id'] ),
                 esc_html( $ticket['type'] ?? '' ),
                 esc_html( esc_money_gbp( (float) ( $ticket['price'] ?? 0 ) ) ),
+                ! empty( $ticket['attendee_name'] ) ? '<br><small>Attendee: ' . esc_html( $ticket['attendee_name'] ) . '</small>' : '',
                 esc_url( $download_link )
             );
         }
@@ -169,7 +213,7 @@ class Shortcodes {
     private function build_email_download_button( int $order_id ): string {
         $download_url = add_query_arg( [
             'ets_email' => rawurlencode( (string) get_post_meta( $order_id, '_ets_customer_email', true ) ),
-        ], home_url( '/profile/' ) );
+        ], get_setting( 'customer_dashboard_url', home_url( '/profile/' ) ) );
 
         $button_template = get_setting( 'email_download_button_template', '' );
 

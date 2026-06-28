@@ -42,6 +42,10 @@ if ( ! defined( 'ABSPATH' ) ) {
                 $price       = isset( $ticket['price'] ) ? (float) $ticket['price'] : 0;
                 $image       = $ticket['image'] ?? [];
                 $image_url   = \ETS\normalise_image_url( $image );
+                $stock       = $ticket['_ets_stock'] ?? null;
+                $sold        = (int) ( $ticket['_ets_sold'] ?? 0 );
+                $remaining   = $ticket['_ets_remaining'] ?? null;
+                $sold_out    = ! empty( $ticket['_ets_sold_out'] );
             ?>
                 <div class="ets-ticket-card border border-gray-200/50 rounded-xl p-3 flex flex-col">
                     <?php if ( $image_url ) : ?>
@@ -63,17 +67,37 @@ if ( ! defined( 'ABSPATH' ) ) {
                         <?php endif; ?>
                     </div>
 
-                    <div class="mt-auto flex items-center pt-4 justify-between gap-3 border-t border-indigo-700/70">
-                        <span class="text-lg font-bold"><?php echo esc_html( \ETS\esc_money_gbp( $price ) ); ?></span>
-                        <input type="number" class="ets-qty-input w-20 text-center size-6 text-xs border border-indigo-700/60 bg-indigo-700/80 text-white rounded-md" data-price="<?php echo esc_attr( $price ); ?>" name="ets_tickets[<?php echo esc_attr( $index ); ?>][qty]" min="0" value="0">
+                    <div class="mb-3">
+                        <?php if ( $remaining === null ) : ?>
+                            <span class="ets-ticket-stock ets-ticket-stock-unlimited text-xs opacity-80">Available</span>
+                        <?php elseif ( $sold_out ) : ?>
+                            <span class="ets-ticket-stock ets-ticket-stock-sold-out text-xs font-semibold uppercase tracking-wide">Sold out</span>
+                            <?php include ETS_PLUGIN_DIR . 'templates/waiting-list-form.php'; ?>
+                        <?php else : ?>
+                            <span class="ets-ticket-stock ets-ticket-stock-remaining text-xs opacity-80"><?php echo esc_html( $remaining ); ?> left</span>
+                        <?php endif; ?>
                     </div>
 
+                    <div class="mt-auto flex items-center pt-4 justify-between gap-3 border-t border-indigo-700/70">
+                        <span class="text-lg font-bold"><?php echo esc_html( \ETS\esc_money_gbp( $price ) ); ?></span>
+                        <input type="number" class="ets-qty-input w-20 text-center size-6 text-xs border border-indigo-700/60 bg-indigo-700/80 text-white rounded-md" data-price="<?php echo esc_attr( $price ); ?>" name="ets_tickets[<?php echo esc_attr( $index ); ?>][qty]" min="0" <?php echo $remaining !== null ? 'max="' . esc_attr( $remaining ) . '"' : ''; ?> value="0" <?php disabled( $sold_out ); ?>>
+                    </div>
+
+                    <input type="hidden" name="ets_tickets[<?php echo esc_attr( $index ); ?>][ticket_key]" value="<?php echo esc_attr( $index ); ?>">
                     <input type="hidden" name="ets_tickets[<?php echo esc_attr( $index ); ?>][label]" value="<?php echo esc_attr( $label ); ?>">
                     <input type="hidden" name="ets_tickets[<?php echo esc_attr( $index ); ?>][price]" value="<?php echo esc_attr( $price ); ?>">
                     <input type="hidden" name="ets_tickets[<?php echo esc_attr( $index ); ?>][image]" value="<?php echo esc_url( $image_url ); ?>">
                 </div>
             <?php endforeach; ?>
         </div>
+
+    <?php include ETS_PLUGIN_DIR . 'templates/ticket-addons.php'; ?>
+
+    <div class="ets-attendee-details mt-6 mb-8 lg:col-span-2" data-ets-attendee-wrapper>
+        <h3 class="text-lg mb-2">Attendee Details</h3>
+        <p class="text-sm opacity-80 mb-4">Add the name and email for each person attending. Leave blank to use the buyer details.</p>
+        <div class="ets-attendee-groups"></div>
+    </div>
 
         <div class="ets-ticket-sidebar border bg-primary text-white relative lg:sticky top-1  lg:top-1 h-auto border-gray-200/50 rounded-xl p-4 mb-8">
             <?php include ETS_PLUGIN_DIR . 'templates/ticket-form-footer.php'; ?>

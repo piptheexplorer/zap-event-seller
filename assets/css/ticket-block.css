@@ -22,7 +22,7 @@
 .ets-profile-submit {
     display: inline-block;
     padding: .55rem .85rem;
-    background: #312e82;
+    background: #312e81;
     color: #fff;
     border-radius: .25rem;
     text-decoration: none;
@@ -51,4 +51,146 @@
     padding: 1rem;
     border: 1px solid rgba(255,255,255,.2);
     border-radius: .5rem;
+}
+
+.ets-ticket-stock {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .25rem .5rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    line-height: 1;
+}
+
+.ets-ticket-stock-unlimited,
+.ets-ticket-stock-remaining {
+    background: rgba(34, 197, 94, .12);
+    color: #16a34a;
+}
+
+.ets-ticket-stock-sold-out {
+    background: rgba(239, 68, 68, .14);
+    color: #dc2626;
+}
+
+.ets-ticket-card:has(.ets-ticket-stock-sold-out) {
+    opacity: .72;
+}
+
+/* Ticket check-in */
+.ets-checkin {
+    max-width: 980px;
+    margin: 2rem auto;
+}
+.ets-checkin-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+}
+.ets-checkin-scanner-panel,
+.ets-checkin-manual-panel,
+.ets-checkin-result {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 1rem;
+    background: #fff;
+}
+#ets-qr-reader {
+    width: 100%;
+    min-height: 260px;
+    margin-bottom: 1rem;
+}
+.ets-checkin-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+.ets-checkin-result {
+    margin-top: 1.5rem;
+}
+.ets-result-success {
+    border-color: #16a34a;
+    background: #f0fdf4;
+}
+.ets-result-warning {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+.ets-result-error {
+    border-color: #dc2626;
+    background: #fef2f2;
+}
+
+/* Group booking attendee fields */
+.ets-attendee-details {
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 16px;
+    background: rgba(255,255,255,0.04);
+}
+.ets-attendee-group + .ets-attendee-group {
+    margin-top: 16px;
+}
+.ets-attendee-group h4 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    font-weight: 700;
+}
+.ets-attendee-row {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.ets-attendee-row-title {
+    margin: 0;
+    font-size: 13px;
+    opacity: 0.8;
+}
+.ets-attendee-input {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.18);
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.06);
+    color: inherit;
+}
+@media (max-width: 700px) {
+    .ets-attendee-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Waiting list */
+.ets-waiting-list-box {
+    font-size: 13px;
+}
+.ets-waiting-list-form {
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.08);
+}
+.ets-waiting-input {
+    width: 100%;
+    max-width: 260px;
+    padding: 6px 8px;
+    border: 1px solid rgba(0,0,0,0.2);
+    border-radius: 6px;
+}
+.ets-waiting-submit {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid currentColor;
+    background: transparent;
+    cursor: pointer;
+}
+.ets-waiting-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }

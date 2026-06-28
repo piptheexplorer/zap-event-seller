@@ -33,6 +33,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                 <th class="border border-gray-300">Description</th>
                 <th class="border border-gray-300">Price</th>
                 <th class="border border-gray-300">Image</th>
+                <th class="border border-gray-300">Availability</th>
                 <th class="border border-gray-300">Quantity</th>
             </tr>
         </thead>
@@ -43,6 +44,10 @@ if ( ! defined( 'ABSPATH' ) ) {
                 $price       = isset( $ticket['price'] ) ? (float) $ticket['price'] : 0;
                 $image       = $ticket['image'] ?? [];
                 $image_url   = \ETS\normalise_image_url( $image );
+                $stock       = $ticket['_ets_stock'] ?? null;
+                $sold        = (int) ( $ticket['_ets_sold'] ?? 0 );
+                $remaining   = $ticket['_ets_remaining'] ?? null;
+                $sold_out    = ! empty( $ticket['_ets_sold_out'] );
             ?>
                 <tr>
                     <td><?php echo esc_html( $label ); ?></td>
@@ -54,7 +59,18 @@ if ( ! defined( 'ABSPATH' ) ) {
                         <?php endif; ?>
                     </td>
                     <td>
-                        <input type="number" name="ets_tickets[<?php echo esc_attr( $index ); ?>][qty]" min="0" value="0" data-price="<?php echo esc_attr( $price ); ?>" class="ets-qty-input" style="width:60px;">
+                        <?php if ( $remaining === null ) : ?>
+                            <span class="ets-ticket-stock ets-ticket-stock-unlimited">Available</span>
+                        <?php elseif ( $sold_out ) : ?>
+                            <span class="ets-ticket-stock ets-ticket-stock-sold-out">Sold out</span>
+                            <?php include ETS_PLUGIN_DIR . 'templates/waiting-list-form.php'; ?>
+                        <?php else : ?>
+                            <span class="ets-ticket-stock ets-ticket-stock-remaining"><?php echo esc_html( $remaining ); ?> left</span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <input type="number" name="ets_tickets[<?php echo esc_attr( $index ); ?>][qty]" min="0" <?php echo $remaining !== null ? 'max="' . esc_attr( $remaining ) . '"' : ''; ?> value="0" data-price="<?php echo esc_attr( $price ); ?>" class="ets-qty-input" style="width:60px;" <?php disabled( $sold_out ); ?>>
+                        <input type="hidden" name="ets_tickets[<?php echo esc_attr( $index ); ?>][ticket_key]" value="<?php echo esc_attr( $index ); ?>">
                         <input type="hidden" name="ets_tickets[<?php echo esc_attr( $index ); ?>][label]" value="<?php echo esc_attr( $label ); ?>">
                         <input type="hidden" name="ets_tickets[<?php echo esc_attr( $index ); ?>][price]" value="<?php echo esc_attr( $price ); ?>">
                         <input type="hidden" name="ets_tickets[<?php echo esc_attr( $index ); ?>][image]" value="<?php echo esc_url( $image_url ); ?>">
@@ -63,6 +79,14 @@ if ( ! defined( 'ABSPATH' ) ) {
             <?php endforeach; ?>
         </tbody>
     </table>
+
+    <?php include ETS_PLUGIN_DIR . 'templates/ticket-addons.php'; ?>
+
+    <div class="ets-attendee-details mt-6 mb-8" data-ets-attendee-wrapper>
+        <h3 class="text-lg mb-2">Attendee Details</h3>
+        <p class="text-sm opacity-80 mb-4">Add the name and email for each person attending. Leave blank to use the buyer details.</p>
+        <div class="ets-attendee-groups"></div>
+    </div>
 
     <?php include ETS_PLUGIN_DIR . 'templates/ticket-form-footer.php'; ?>
 </form>

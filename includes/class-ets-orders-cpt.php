@@ -92,6 +92,10 @@ class Orders_CPT {
         $email          = get_post_meta( $post->ID, '_ets_customer_email', true );
         $phone          = get_post_meta( $post->ID, '_ets_customer_phone', true );
         $tickets        = get_post_meta( $post->ID, '_ets_tickets', true );
+        $addons         = get_post_meta( $post->ID, '_ets_addons', true );
+        $subtotal       = (int) get_post_meta( $post->ID, '_ets_subtotal_amount_cents', true );
+        $discount_total = (int) get_post_meta( $post->ID, '_ets_discount_amount_cents', true );
+        $discount_code  = get_post_meta( $post->ID, '_ets_discount_code', true );
         $total          = (int) get_post_meta( $post->ID, '_ets_total_amount_cents', true );
         $event_id       = (int) get_post_meta( $post->ID, '_ets_event_id', true );
         $event_title    = get_post_meta( $post->ID, '_ets_event_title', true );
@@ -102,6 +106,8 @@ class Orders_CPT {
         $stripe_id      = get_post_meta( $post->ID, '_ets_stripe_session_id', true );
         $generated      = get_post_meta( $post->ID, '_ets_generated_tickets', true );
         $ticket_design  = get_post_meta( $post->ID, '_ets_ticket_design', true );
+        $customer_user_id = (int) get_post_meta( $post->ID, '_ets_customer_user_id', true );
+        $account_status   = get_post_meta( $post->ID, '_ets_customer_account_status', true );
 
         include ETS_PLUGIN_DIR . 'templates/admin-order-metabox.php';
     }

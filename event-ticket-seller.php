@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Event Ticket Seller
  * Description: Sell event tickets with Stripe Checkout using an ACF Pro block.
- * Version: 3.5.0
+ * Version: 4.1.0
  * Author: Pip
  * Text Domain: ets
  */
@@ -19,6 +19,9 @@ define( 'ETS_OPTION_NAME', 'ets_settings' );
 
 
 require_once ETS_PLUGIN_DIR . 'includes/helpers.php';
+require_once ETS_PLUGIN_DIR . 'includes/class-ets-roles.php';
 require_once ETS_PLUGIN_DIR . 'includes/class-ets-plugin.php';
+
+register_activation_hook( ETS_PLUGIN_FILE, [ '\ETS\Roles', 'activate' ] );
 
 ETS\Plugin::instance();

@@ -3,9 +3,10 @@ namespace ETS;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
+
 }
 
-class Block {
+class Block{
 
     public function __construct() {
         add_action( 'acf/init', [ $this, 'register_acf_block' ] );
@@ -79,8 +80,10 @@ class Block {
         $event_location = get_field( 'ets_event_location' );
         $event_map      = get_field( 'ets_event_map' );
         $ticket_types   = get_field( 'ets_ticket_types' );
+        $addons         = get_field( 'ets_event_addons' );
         $ticket_style   = get_field( 'ets_ticket_style' ) ?: 'table';
         $ticket_design  = get_field( 'ets_ticket_design' );
+        $ticket_pdf_layout = get_field( 'ets_ticket_pdf_layout' ) ?: get_setting( 'ticket_pdf_layout', 'classic_landscape' );
         $policy_text    = get_setting( 'purchase_policy_text', '' );
 
         if ( $event_id ) {
@@ -93,8 +96,13 @@ class Block {
             $event_location = $event_data['location'] ?: $event_location;
             $event_map      = $event_data['map'] ?: $event_map;
             $ticket_types   = ! empty( $event_data['ticket_types'] ) ? $event_data['ticket_types'] : $ticket_types;
+            $addons         = isset( $event_data['addons'] ) && is_array( $event_data['addons'] ) ? $event_data['addons'] : $addons;
             $ticket_design  = $event_data['ticket_design'] ?: $ticket_design;
+            $ticket_pdf_layout = $event_data['ticket_pdf_layout'] ?: $ticket_pdf_layout;
         }
+
+        $ticket_types = $this->normalise_ticket_types( $ticket_types, $event_id );
+        $addons       = $this->normalise_addons( $addons, $event_id );
 
         if ( empty( $ticket_types ) || ! is_array( $ticket_types ) ) {
             echo '<p>Please add at least one ticket type in the block settings.</p>';
@@ -146,8 +154,10 @@ class Block {
             'time'          => $this->get_event_field( $event_id, [ 'ets_event_time', 'event_time', 'time', 'start_time', 'event_start_time' ], '' ),
             'location'      => $this->get_event_field( $event_id, [ 'ets_event_location', 'event_location', 'location', 'venue' ], '' ),
             'map'           => $this->get_event_field( $event_id, [ 'ets_event_map', 'event_map', 'map' ], '' ),
-            'ticket_types'  => $this->normalise_ticket_types( $this->get_event_field( $event_id, [ 'ets_ticket_types', 'ticket_types', 'tickets' ], [] ) ),
+            'addons'        => $this->normalise_addons( $this->get_event_field( $event_id, [ 'ets_event_addons', 'event_addons', 'addons' ], [] ), $event_id ),
+            'ticket_types'  => $this->normalise_ticket_types( $this->get_event_field( $event_id, [ 'ets_ticket_types', 'ticket_types', 'tickets' ], [] ), $event_id ),
             'ticket_design' => $this->get_event_field( $event_id, [ 'ets_ticket_design', 'ticket_design' ], '' ),
+            'ticket_pdf_layout' => $this->get_event_field( $event_id, [ 'ets_ticket_pdf_layout', 'ticket_pdf_layout' ], '' ),
         ];
     }
 
@@ -179,12 +189,69 @@ class Block {
         return $post ? wp_strip_all_tags( $post->post_content ) : '';
     }
 
-    private function normalise_ticket_types( $ticket_types ): array {
+    private function normalise_ticket_types( $ticket_types, int $event_id = 0 ): array {
         if ( ! is_array( $ticket_types ) ) {
             return [];
         }
 
-        return $ticket_types;
+        $normalised = [];
+
+        foreach ( $ticket_types as $index => $ticket ) {
+            if ( ! is_array( $ticket ) ) {
+                continue;
+            }
+
+            $label = isset( $ticket['label'] ) ? sanitize_text_field( $ticket['label'] ) : '';
+            $stock = $ticket['stock'] ?? null;
+            $sold  = $event_id ? get_event_ticket_sold_count( $event_id, (int) $index, $label ) : 0;
+            $remaining = get_ticket_remaining_stock( $stock, $sold );
+
+            $ticket['_ets_index']     = (int) $index;
+            $ticket['_ets_stock']     = normalise_ticket_stock_value( $stock );
+            $ticket['_ets_sold']      = $sold;
+            $ticket['_ets_remaining'] = $remaining;
+            $ticket['_ets_sold_out']  = ( $remaining !== null && $remaining <= 0 );
+
+            $normalised[ $index ] = $ticket;
+        }
+
+        return $normalised;
     }
+
+
+    private function normalise_addons( $addons, int $event_id = 0 ): array {
+        if ( ! is_array( $addons ) ) {
+            return [];
+        }
+
+        $normalised = [];
+
+        foreach ( $addons as $index => $addon ) {
+            if ( ! is_array( $addon ) ) {
+                continue;
+            }
+
+            $name = isset( $addon['name'] ) ? sanitize_text_field( $addon['name'] ) : '';
+            if ( ! $name ) {
+                continue;
+            }
+
+            $stock = $addon['stock'] ?? null;
+            $sold  = $event_id ? get_event_addon_sold_count( $event_id, (int) $index, $name ) : 0;
+            $remaining = get_ticket_remaining_stock( $stock, $sold );
+
+            $addon['_ets_index']     = (int) $index;
+            $addon['_ets_stock']     = normalise_ticket_stock_value( $stock );
+            $addon['_ets_sold']      = $sold;
+            $addon['_ets_remaining'] = $remaining;
+            $addon['_ets_sold_out']  = ( $remaining !== null && $remaining <= 0 );
+
+            $normalised[ $index ] = $addon;
+        }
+
+        return $normalised;
+    }
+
+
 
 }

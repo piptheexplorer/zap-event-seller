@@ -10,28 +10,56 @@ if ( empty( $email ) && ! empty( $_GET['ets_email'] ) ) {
 <div class="ets-my-tickets">
     <h2 class="text-2xl font-bold mb-4">My Tickets</h2>
 
-    <form method="post" class="mb-6">
-        <label class="block mb-2 font-semibold">Enter your email address</label>
-        <input type="email" name="ets_email_lookup" required value="<?php echo esc_attr( $email ); ?>" class="ets-email-lookup" placeholder="Search for tickets...">
-        <button type="submit" class="ets-profile-submit">View my tickets</button>
-    </form>
+    <?php if ( ! is_user_logged_in() || $email ) : ?>
+        <form method="post" class="mb-6">
+            <label class="block mb-2 font-semibold">Enter your email address</label>
+            <input type="email" name="ets_email_lookup" required value="<?php echo esc_attr( $email ); ?>" class="ets-email-lookup" placeholder="Search for tickets...">
+            <button type="submit" class="ets-profile-submit">View my tickets</button>
+        </form>
+    <?php else : ?>
+        <p class="mb-6">Logged in as <?php echo esc_html( wp_get_current_user()->user_email ); ?>. <a href="<?php echo esc_url( wp_logout_url( get_permalink() ) ); ?>">Log out</a></p>
+    <?php endif; ?>
 
     <?php
-    if ( ! $email ) {
+    $current_user_id = get_current_user_id();
+    $lookup_by_account = is_user_logged_in() && ! $email;
+
+    if ( ! $email && ! $lookup_by_account ) {
         echo '</div>';
         return;
     }
 
-    $orders = get_posts( [
-        'post_type'   => 'ticket_order',
-        'numberposts' => -1,
-        'meta_query'  => [
-            [
-                'key'   => '_ets_customer_email',
-                'value' => $email,
+    if ( $lookup_by_account ) {
+        echo '<p class="ets-dashboard-intro">Showing tickets linked to your account.</p>';
+        $orders = get_posts( [
+            'post_type'      => 'ticket_order',
+            'posts_per_page' => -1,
+            'post_status'    => 'publish',
+            'meta_query'     => [
+                'relation' => 'OR',
+                [
+                    'key'   => '_ets_customer_user_id',
+                    'value' => $current_user_id,
+                ],
+                [
+                    'key'   => '_ets_customer_email',
+                    'value' => wp_get_current_user()->user_email,
+                ],
             ],
-        ],
-    ] );
+        ] );
+    } else {
+        $orders = get_posts( [
+            'post_type'      => 'ticket_order',
+            'posts_per_page' => -1,
+            'post_status'    => 'publish',
+            'meta_query'     => [
+                [
+                    'key'   => '_ets_customer_email',
+                    'value' => $email,
+                ],
+            ],
+        ] );
+    }
 
     if ( empty( $orders ) ) {
         echo '<p>No tickets found for this email.</p></div>';
@@ -65,6 +93,9 @@ if ( empty( $email ) && ! empty( $_GET['ets_email'] ) ) {
                         <div>
                             <strong><?php echo esc_html( $ticket['ticket_id'] ); ?></strong><br>
                             <span><?php echo esc_html( $ticket['type'] ?? '' ); ?></span>
+                            <?php if ( ! empty( $ticket['attendee_name'] ) ) : ?>
+                                <br><small>Attendee: <?php echo esc_html( $ticket['attendee_name'] ); ?></small>
+                            <?php endif; ?>
                         </div>
                         <a href="<?php echo esc_url( $download_link ); ?>" class="ets-download-btn">Download ticket</a>
                     </li>
