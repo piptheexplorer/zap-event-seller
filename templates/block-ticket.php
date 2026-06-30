@@ -6,6 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 <div class="ets-ticket-block" id="<?php echo esc_attr( $block_id ); ?>"
      data-ets-rest-url="<?php echo esc_attr( $rest_url ); ?>"
      data-ets-stripe-pk="<?php echo esc_attr( $publishable_key ); ?>"
+     data-ets-checkout-experience="<?php echo esc_attr( $checkout_experience ?? 'single' ); ?>"
      data-ets-waiting-list-url="<?php echo esc_url( rest_url( 'ets/v1/join-waiting-list' ) ); ?>">
     <?php
     if ( $ticket_style === 'cards' ) {

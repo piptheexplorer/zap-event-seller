@@ -85,6 +85,7 @@ class Block{
         $ticket_design  = get_field( 'ets_ticket_design' );
         $ticket_pdf_layout = get_field( 'ets_ticket_pdf_layout' ) ?: get_setting( 'ticket_pdf_layout', 'classic_landscape' );
         $policy_text    = get_setting( 'purchase_policy_text', '' );
+        $checkout_experience = get_setting( 'checkout_experience', 'single' );
 
         if ( $event_id ) {
             $event_data     = $this->get_event_data( $event_id );

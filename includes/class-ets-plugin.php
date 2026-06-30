@@ -71,7 +71,7 @@ class Plugin {
             'ets-ticket-block',
             ETS_PLUGIN_URL . 'assets/js/ticket-block.js',
             [],
-            '4.2.0',
+            '4.3.0',
             true
         );
 
@@ -79,14 +79,14 @@ class Plugin {
             'ets-tailwind-output',
             ETS_PLUGIN_URL . 'assets/css/tailwind-output.css',
             [],
-            '4.2.0'
+            '4.3.0'
         );
 
         wp_enqueue_style(
             'ets-ticket-block',
             ETS_PLUGIN_URL . 'assets/css/ticket-block.css',
             [ 'ets-tailwind-output' ],
-            '4.2.0'
+            '4.3.0'
         );
 
         wp_register_script(
@@ -101,7 +101,7 @@ class Plugin {
             'ets-checkin',
             ETS_PLUGIN_URL . 'assets/js/checkin.js',
             [ 'ets-html5-qrcode' ],
-            '4.2.0',
+            '4.3.0',
             true
         );
 
@@ -109,7 +109,7 @@ class Plugin {
             'ets-checkin',
             ETS_PLUGIN_URL . 'assets/css/ticket-block.css',
             [],
-            '4.2.0'
+            '4.3.0'
         );
     }
 }

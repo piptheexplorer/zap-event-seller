@@ -72,6 +72,26 @@ class Settings {
             ]
         );
 
+
+        add_settings_section( 'ets_checkout_section', 'Checkout Experience', '__return_false', 'ets-ticket-settings' );
+
+        add_settings_field(
+            'checkout_experience',
+            'Checkout Style',
+            [ $this, 'render_select_field' ],
+            'ets-ticket-settings',
+            'ets_checkout_section',
+            [
+                'option_key'  => 'checkout_experience',
+                'description' => 'Choose how buyers move through the ticket purchase form.',
+                'choices'     => [
+                    'single'     => 'Single page checkout',
+                    'multi_step' => 'Multi-step checkout',
+                ],
+                'default'     => 'single',
+            ]
+        );
+
         add_settings_section( 'ets_policy_section', 'Purchase Policy / T&Cs', '__return_false', 'ets-ticket-settings' );
         add_settings_field(
             'purchase_policy_text',

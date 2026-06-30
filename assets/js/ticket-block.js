@@ -25,6 +25,128 @@
     let appliedDiscount = null;
     let lastSubtotal = 0;
 
+
+    const checkoutExperience = container.dataset.etsCheckoutExperience || 'single';
+    const isMultiStep = checkoutExperience === 'multi_step';
+
+    // In multi-step mode the real Stripe button is triggered programmatically
+    // from the final Review step. Keep it hidden so it does not appear on the Details step.
+    if (isMultiStep) {
+      button.style.display = 'none';
+      button.setAttribute('aria-hidden', 'true');
+    }
+
+    const stepEls = Array.from(container.querySelectorAll('.ets-checkout-step'));
+    const stepLabels = Array.from(container.querySelectorAll('[data-step-label]'));
+    const progressBar = container.querySelector('.ets-checkout-progress-bar span');
+    const backButton = container.querySelector('.ets-step-back');
+    const nextButton = container.querySelector('.ets-step-next');
+    const reviewSummary = container.querySelector('.ets-review-summary');
+    let currentStepIndex = 0;
+
+    function getVisibleSteps(){
+      if (!isMultiStep) return [];
+      return stepEls.filter(step => {
+        const id = step.dataset.etsStep || '';
+        if (id === 'addons' && !step.querySelector('.ets-addon-card')) return false;
+        return true;
+      });
+    }
+
+    function buildReviewSummary(){
+      if (!reviewSummary) return;
+      const lines = [];
+
+      qtyInputs.forEach(input => {
+        const qty = parseInt(input.value, 10) || 0;
+        if (qty <= 0 || input.disabled) return;
+        const label = getTicketLabel(input);
+        const price = parseFloat(input.dataset.price) || 0;
+        lines.push('<li><strong>' + qty + ' × ' + label + '</strong> - ' + formatGBP(qty * price) + '</li>');
+      });
+
+      addonQtyInputs.forEach(input => {
+        const qty = parseInt(input.value, 10) || 0;
+        if (qty <= 0 || input.disabled) return;
+        const card = input.closest('.ets-addon-card');
+        const title = card ? (card.querySelector('h4') ? card.querySelector('h4').textContent.trim() : 'Add-on') : 'Add-on';
+        const price = parseFloat(input.dataset.price) || 0;
+        lines.push('<li>' + qty + ' × ' + title + ' - ' + formatGBP(qty * price) + '</li>');
+      });
+
+      const subtotal = calculateSubtotal();
+      const discountAmount = appliedDiscount ? (appliedDiscount.discount_cents / 100) : 0;
+      const finalTotal = Math.max(0, subtotal - discountAmount);
+
+      reviewSummary.innerHTML = '<ul class="ets-review-lines">' + (lines.length ? lines.join('') : '<li>No tickets selected.</li>') + '</ul>' +
+        '<div class="ets-review-totals"><p><strong>Subtotal:</strong> ' + formatGBP(subtotal) + '</p>' +
+        (discountAmount > 0 ? '<p><strong>Discount:</strong> -' + formatGBP(discountAmount) + '</p>' : '') +
+        '<p><strong>Total:</strong> ' + formatGBP(finalTotal) + '</p></div>';
+    }
+
+    function validateCurrentStep(stepId){
+      if (stepId === 'tickets' && !hasTicketSelected()) {
+        alert('Please select at least one ticket before continuing.');
+        return false;
+      }
+
+      if (stepId === 'details') {
+        const nameField = form.querySelector('[name="ets_name"]');
+        const emailField = form.querySelector('[name="ets_email"]');
+        if (!nameField || !emailField || !nameField.value.trim() || !emailField.value.trim()) {
+          alert('Please enter your name and email.');
+          if (nameField && !nameField.value.trim()) nameField.focus();
+          else if (emailField) emailField.focus();
+          return false;
+        }
+        if (termsCheckbox && !termsCheckbox.checked) {
+          alert('Please agree to the terms and conditions.');
+          termsCheckbox.focus();
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    function showStep(index){
+      if (!isMultiStep) return;
+      const steps = getVisibleSteps();
+      if (!steps.length) return;
+      currentStepIndex = Math.max(0, Math.min(index, steps.length - 1));
+
+      stepEls.forEach(step => step.classList.remove('is-active'));
+      steps[currentStepIndex].classList.add('is-active');
+
+      const activeId = steps[currentStepIndex].dataset.etsStep || '';
+      stepLabels.forEach(label => {
+        const matches = label.dataset.stepLabel === activeId;
+        const labelIndex = steps.findIndex(step => (step.dataset.etsStep || '') === label.dataset.stepLabel);
+        label.classList.toggle('is-active', matches);
+        label.classList.toggle('is-complete', labelIndex > -1 && labelIndex < currentStepIndex);
+        label.style.display = labelIndex === -1 ? 'none' : '';
+      });
+
+      if (progressBar) {
+        progressBar.style.width = steps.length > 1 ? ((currentStepIndex + 1) / steps.length * 100) + '%' : '100%';
+      }
+
+      if (backButton) backButton.style.display = currentStepIndex === 0 ? 'none' : '';
+      if (nextButton) {
+        const isLast = currentStepIndex === steps.length - 1;
+        nextButton.textContent = isLast ? 'Pay securely with Stripe' : 'Continue';
+        nextButton.disabled = isLast ? button.disabled : false;
+      }
+
+      if (activeId === 'review') buildReviewSummary();
+      updateButtonState();
+    }
+
+    function refreshMultiStep(){
+      if (!isMultiStep) return;
+      showStep(currentStepIndex);
+    }
+
     function calculateSubtotal(){
       let total = 0;
       qtyInputs.forEach(input => {
@@ -159,6 +281,13 @@
     function updateButtonState(){
       const termsOk = termsCheckbox ? termsCheckbox.checked : true;
       button.disabled = !hasTicketSelected() || !termsOk;
+      if (isMultiStep && nextButton) {
+        const steps = getVisibleSteps();
+        const active = steps[currentStepIndex];
+        if (active && (active.dataset.etsStep || '') === 'review') {
+          nextButton.disabled = button.disabled;
+        }
+      }
     }
 
     function clearDiscount(message){
@@ -194,9 +323,40 @@
       renderAttendeeFields();
       updateAddonVisibility();
       updateTotal();
+      refreshMultiStep();
     }));
-    addonQtyInputs.forEach(input => input.addEventListener('input', updateTotal));
-    if (termsCheckbox) termsCheckbox.addEventListener('change', updateButtonState);
+    addonQtyInputs.forEach(input => input.addEventListener('input', function(){
+      updateTotal();
+      refreshMultiStep();
+    }));
+    if (termsCheckbox) termsCheckbox.addEventListener('change', function(){
+      updateButtonState();
+      refreshMultiStep();
+    });
+
+    if (backButton) {
+      backButton.addEventListener('click', function(){
+        showStep(currentStepIndex - 1);
+      });
+    }
+
+    if (nextButton) {
+      nextButton.addEventListener('click', function(e){
+        e.preventDefault();
+        const steps = getVisibleSteps();
+        const active = steps[currentStepIndex];
+        const activeId = active ? (active.dataset.etsStep || '') : '';
+
+        if (!validateCurrentStep(activeId)) return;
+
+        if (currentStepIndex >= steps.length - 1) {
+          button.click();
+          return;
+        }
+
+        showStep(currentStepIndex + 1);
+      });
+    }
 
     const restUrl = container.dataset.etsRestUrl;
     const stripeKey = container.dataset.etsStripePk;
@@ -345,6 +505,7 @@
 
     updateAddonVisibility();
     updateTotal();
+    showStep(0);
 
     if (!restUrl || !stripeKey || typeof Stripe === 'undefined') return;
 
